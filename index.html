@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Global Market Tracker - Telegram Mini App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;400;600;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<!-- Telegram Web App SDK -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  /* Default dark theme */
+  --bg:#05070a;
+  --card:#111827;
+  --text:#f3f4f6;
+  --accent:#60a5fa;
+  --open:#10b981;
+  --closed:#f43f5e;
+  --warning:#f59e0b;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;padding:clamp(15px,4vw,30px);background-image:radial-gradient(circle at 20% 50%,rgba(96,165,250,.01) 0%,transparent 50%),radial-gradient(circle at 80% 80%,rgba(16,185,129,.01) 0%,transparent 50%);overflow-x:hidden}
+.header{text-align:center;margin-bottom:40px;width:100%;padding-top:var(--tg-safe-area-inset-top,0)}
+h1{margin:0 0 10px 0;font-weight:200;font-size:clamp(1.8rem,6vw,2.8rem);letter-spacing:-1px}
+h1 span{color:var(--accent);font-weight:800}
+.subtitle{color:var(--muted);font-size:.9rem;font-weight:400}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(15px,3vw,25px);width:100%;max-width:1400px}
+.card{background:var(--card);border-radius:20px;padding:clamp(20px,5vw,30px);border:1px solid rgba(128,128,128,0.1);position:relative;transition:all .3s cubic-bezier(.4,0,.2,1);box-shadow:0 10px 30px -10px rgba(0,0,0,0.4);animation:fadeInUp .5s ease-out backwards;cursor:pointer}
+.card:active{transform:scale(0.98);opacity:0.9}
+.card:hover{border-color:var(--accent)}
+.card:nth-child(1){animation-delay:.1s}
+.card:nth-child(2){animation-delay:.2s}
+.card:nth-child(3){animation-delay:.3s}
+.market-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:15px;gap:10px;flex-wrap:wrap}
+.dst-badge{background:rgba(128,128,128,0.1);padding:5px 12px;border-radius:6px;font-size:.65rem;font-weight:700;color:var(--accent);letter-spacing:.3px;transition:all .3s ease;border:1px solid transparent;white-space:nowrap}
+.dst-badge.dst-active{background:rgba(96,165,250,.15);border-color:var(--accent);animation:pulse-dst 2s infinite}
+h2{margin:0;font-size:1.5rem;letter-spacing:-.5px;display:flex;align-items:center;gap:10px}
+.flag{font-size:1.8rem;line-height:1}
+.clock{font-size:clamp(1.8rem,7vw,2.4rem);font-weight:800;font-family:'JetBrains Mono',monospace;margin:0;color:var(--text);text-shadow:0 0 10px rgba(255,255,255,.05);letter-spacing:-1.5px}
+.time-display{display:flex;flex-direction:column;align-items:center;gap:15px;margin:15px 0 25px 0}
+.analog-watch{width:145px;height:145px;border-radius:50%;position:relative;border:4px solid rgba(128,128,128,0.2);background:radial-gradient(circle at 50% 50%,rgba(128,128,128,0.1) 0%,rgba(0,0,0,0.1) 100%);box-shadow:0 15px 35px rgba(0,0,0,0.4),inset 0 2px 10px rgba(255,255,255,0.05);overflow:hidden}
+.analog-watch::before{content:'';position:absolute;inset:0;background:conic-gradient(from 0deg,transparent,var(--sunburst-tint,rgba(255,255,255,0.03)),transparent 25%,transparent 50%,var(--sunburst-tint,rgba(255,255,255,0.03)),transparent 75%,transparent);animation:rotate-sunburst 60s linear infinite}
+.analog-watch::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1) 0%,rgba(255,255,255,0) 50%,rgba(255,255,255,.02) 100%);pointer-events:none;z-index:20}
+.is-open{--sunburst-tint:rgba(16,185,129,.15)}
+.is-closed{--sunburst-tint:rgba(244,63,94,.15)}
+.is-warning{--sunburst-tint:rgba(245,158,11,.2)}
+.dial .marker{position:absolute;width:1.5px;height:8px;background:rgba(255,255,255,.2);left:50%;top:6px;transform-origin:50% 66px;margin-left:-0.75px}
+.dial .marker.m12,.dial .marker.m3,.dial .marker.m6,.dial .marker.m9{height:12px;width:3px;background:rgba(255,255,255,.5);margin-left:-1.5px}
+.dial-num{position:absolute;width:24px;height:24px;text-align:center;font-size:.7rem;font-weight:800;color:var(--muted);top:50%;left:50%;margin:-12px;display:flex;align-items:center;justify-content:center;z-index:1}
+.hand{position:absolute;bottom:50%;left:50%;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.hour-hand{width:6px;height:40px;background:linear-gradient(to right,#fff 50%,#e2e8f0 50%);clip-path:polygon(50% 0,100% 100%,0 100%);z-index:2}
+.minute-hand{width:4px;height:60px;background:linear-gradient(to right,#cbd5e1 50%,#94a3b8 50%);clip-path:polygon(50% 0,100% 100%,0 100%);z-index:3}
+.second-hand{width:1.5px;height:68px;background:var(--accent);z-index:4;transition:transform .15s cubic-bezier(.4,2.3,.6,1)}
+.second-hand::after{content:'';position:absolute;width:8px;height:8px;background:var(--accent);border-radius:50%;bottom:-4px;left:50%;transform:translateX(-50%);box-shadow:0 0 10px var(--accent)}
+.center-nub{position:absolute;width:12px;height:12px;background:#fff;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10;box-shadow:0 2px 10px rgba(0,0,0,.5);border:2px solid var(--accent)}
+@keyframes rotate-sunburst{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.countdown{background:rgba(96,165,250,.1);padding:14px;border-radius:8px;border:1px dashed var(--accent);margin-top:15px;transition:all .3s ease}
+.card.is-open .countdown{background:rgba(16,185,129,.1);border-color:var(--open)}
+.card.is-closed .countdown{background:rgba(244,63,94,.1);border-color:var(--closed)}
+.countdown.warning{background:rgba(245,158,11,.15);border-color:var(--warning);animation:pulse-warning 1.5s infinite}
+.countdown-label{font-size:.7rem;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-weight:600;letter-spacing:1px}
+.card.is-open .countdown-label{color:var(--open)}
+.card.is-closed .countdown-label{color:var(--closed)}
+.countdown.warning .countdown-label{color:var(--warning)}
+.countdown-timer{font-size:1.3rem;font-weight:bold;font-family:'JetBrains Mono',monospace;letter-spacing:-.5px}
+.status-line{display:flex;align-items:center;gap:10px;font-weight:600;margin-bottom:15px;font-size:.95rem}
+.dot{width:10px;height:10px;border-radius:50%;transition:all .3s ease}
+.is-open .dot{background:var(--open);box-shadow:0 0 12px var(--open),0 0 24px var(--open);animation:pulse-open 2s infinite}
+.is-closed .dot{background:var(--closed);box-shadow:0 0 8px rgba(244,63,94,.3)}
+.local-info,.converted-session,.user-time{font-size:.75rem;margin-top:10px;padding:8px 12px;border-radius:6px}
+.local-info{color:var(--muted);padding:0;padding-top:15px;border-top:1px solid rgba(107,114,128,.15);display:flex;justify-content:space-between;align-items:center}
+.converted-session{background:rgba(107,114,128,.1);color:var(--muted);border:1px solid rgba(107,114,128,.2);text-align:center}
+.converted-session strong{color:var(--text);font-weight:600}
+.user-time{background:rgba(96,165,250,.1);color:var(--accent);font-weight:600;border:1px solid rgba(96,165,250,.2);display:flex;align-items:center;gap:6px}
+.user-time-label{color:var(--muted);font-weight:400}
+.progress-bar{width:100%;height:4px;background:rgba(128,128,128,0.15);border-radius:2px;margin-top:12px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--open));border-radius:2px;transition:width 1s linear}
+.is-closed .progress-fill{background:var(--muted)}
+@keyframes pulse-dst{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes pulse-warning{0%,100%{transform:scale(1)}50%{transform:scale(1.02)}}
+@keyframes pulse-open{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.2);opacity:.8}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@media (max-width:768px){
+  .grid{grid-template-columns:1fr}
+  .market-header{flex-direction:row;align-items:center}
+  .flag{font-size:1.5rem}
+  .clock{letter-spacing:-1px}
+  .local-info{flex-direction:column;align-items:flex-start;gap:5px}
+  .user-time{flex-wrap:wrap}
+}
+@media (max-width:400px){
+  .analog-watch{width:130px;height:130px}
+  .dial-num{font-size:0.6rem}
+  .dial .marker{transform-origin:50% 59px}
+}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>GLOBAL <span>MARKETS</span></h1>
+<div class="subtitle">Real-time monitoring for Telegram Mini Apps</div>
+</div>
+<div class="grid">
+<div id="LSE-card" class="card" onclick="triggerHaptic()">
+<div class="market-header"><h2><span class="flag">🇬🇧</span> LONDON</h2><div id="LSE-dst" class="dst-badge">...</div></div>
+<div class="time-display">
+<div class="analog-watch">
+<div class="dial"></div>
+<div id="LSE-h" class="hand hour-hand"></div><div id="LSE-m" class="hand minute-hand"></div><div id="LSE-s" class="hand second-hand"></div>
+<div class="center-nub"></div>
+</div>
+<div id="LSE-clock" class="clock">00:00:00</div>
+</div>
+<div class="status-line"><span class="dot"></span> <span id="LSE-status-text">---</span></div>
+<div id="LSE-countdown-box" class="countdown"><div class="countdown-label" id="LSE-cd-label">NEXT EVENT</div><div id="LSE-countdown" class="countdown-timer">00h 00m 00s</div></div>
+<div class="progress-bar"><div id="LSE-progress" class="progress-fill" style="width:0%"></div></div>
+<div class="local-info"><span>Session: 08:00 - 16:30</span><span class="session-hours" id="LSE-duration">8h 30m</span></div>
+<div class="converted-session" id="LSE-converted-session"><strong>--:-- - --:--</strong></div>
+<div class="user-time"><span class="user-time-label">Local:</span><span id="LSE-user-time">--:--</span></div>
+</div>
+<div id="NYSE-card" class="card" onclick="triggerHaptic()">
+<div class="market-header"><h2><span class="flag">🇺🇸</span> NEW YORK</h2><div id="NYSE-dst" class="dst-badge">...</div></div>
+<div class="time-display">
+<div class="analog-watch">
+<div class="dial"></div>
+<div id="NYSE-h" class="hand hour-hand"></div><div id="NYSE-m" class="hand minute-hand"></div><div id="NYSE-s" class="hand second-hand"></div>
+<div class="center-nub"></div>
+</div>
+<div id="NYSE-clock" class="clock">00:00:00</div>
+</div>
+<div class="status-line"><span class="dot"></span> <span id="NYSE-status-text">---</span></div>
+<div id="NYSE-countdown-box" class="countdown"><div class="countdown-label" id="NYSE-cd-label">NEXT EVENT</div><div id="NYSE-countdown" class="countdown-timer">00h 00m 00s</div></div>
+<div class="progress-bar"><div id="NYSE-progress" class="progress-fill" style="width:0%"></div></div>
+<div class="local-info"><span>Session: 09:30 - 16:00</span><span class="session-hours" id="NYSE-duration">6h 30m</span></div>
+<div class="converted-session" id="NYSE-converted-session"><strong>--:-- - --:--</strong></div>
+<div class="user-time"><span class="user-time-label">Local:</span><span id="NYSE-user-time">--:--</span></div>
+</div>
+<div id="TSE-card" class="card" onclick="triggerHaptic()">
+<div class="market-header"><h2><span class="flag">🇯🇵</span> TOKYO</h2><div id="TSE-dst" class="dst-badge">...</div></div>
+<div class="time-display">
+<div class="analog-watch">
+<div class="dial"></div>
+<div id="TSE-h" class="hand hour-hand"></div><div id="TSE-m" class="hand minute-hand"></div><div id="TSE-s" class="hand second-hand"></div>
+<div class="center-nub"></div>
+</div>
+<div id="TSE-clock" class="clock">00:00:00</div>
+</div>
+<div class="status-line"><span class="dot"></span> <span id="TSE-status-text">---</span></div>
+<div id="TSE-countdown-box" class="countdown"><div class="countdown-label" id="TSE-cd-label">NEXT EVENT</div><div id="TSE-countdown" class="countdown-timer">00h 00m 00s</div></div>
+<div class="progress-bar"><div id="TSE-progress" class="progress-fill" style="width:0%"></div></div>
+<div class="local-info"><span>Session: 09:00 - 15:00</span><span class="session-hours" id="TSE-duration">6h 00m</span></div>
+<div class="converted-session" id="TSE-converted-session"><strong>--:-- - --:--</strong></div>
+<div class="user-time"><span class="user-time-label">Local:</span><span id="TSE-user-time">--:--</span></div>
+</div>
+</div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+const triggerHaptic = () => {
+    if (tg && tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred('medium');
+    }
+};
+
+const syncTheme = () => {
+    if (!tg) return;
+    const theme = tg.themeParams;
+    const r = document.documentElement.style;
+    if (theme.bg_color) r.setProperty('--bg', theme.bg_color);
+    if (theme.secondary_bg_color) r.setProperty('--card', theme.secondary_bg_color);
+    if (theme.text_color) r.setProperty('--text', theme.text_color);
+    if (theme.button_color) r.setProperty('--accent', theme.button_color);
+    if (theme.hint_color) r.setProperty('--muted', theme.hint_color);
+};
+
+// ... (Rest of your market logic, unchanged but optimized)
+const getNthDay=(y,m,w,n)=>{const d=new Date(y,m-1,1);let c=0;while(d.getMonth()===m-1){if(d.getDay()===w){c++;if(c===n)return d.getDate()}d.setDate(d.getDate()+1)}};
+const getLastDay=(y,m,w)=>{const d=new Date(y,m,0);while(d.getDay()!==w)d.setDate(d.getDate()-1);return d.getDate()};
+const getEaster=y=>{const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;return new Date(y,month-1,day)};
+const isClosed=(d,mId)=>{const y=d.getFullYear(),m=d.getMonth()+1,dt=d.getDate(),day=d.getDay();if(day===0||day===6)return"WEEKEND";if(m===1&&dt===1)return"NEW YEAR";if(m===12&&dt===25&&mId!=='TSE')return"CHRISTMAS";const e=getEaster(y),gf=new Date(e);gf.setDate(e.getDate()-2);const isGF=dt===gf.getDate()&&m===(gf.getMonth()+1);if(mId==='NYSE'){if(isGF)return"GOOD FRIDAY";if(m===1&&dt===getNthDay(y,1,1,3))return"MLK DAY";if(m===2&&dt===getNthDay(y,2,1,3))return"PRESIDENT DAY";if(m===5&&dt===getLastDay(y,5,1))return"MEMORIAL DAY";if(m===6&&dt===19)return"JUNETEENTH";if(m===7&&dt===4)return"INDEPENDENCE DAY";if(m===9&&dt===getNthDay(y,9,1,1))return"LABOR DAY";if(m===11&&dt===getNthDay(y,11,4,4))return"THANKSGIVING"}if(mId==='LSE'){if(isGF)return"GOOD FRIDAY";const em=new Date(e);em.setDate(e.getDate()+1);if(dt===em.getDate()&&m===(em.getMonth()+1))return"EASTER MONDAY";if(dt===26&&m===12)return"BOXING DAY";if(m===5&&dt===getNthDay(y,5,1,1))return"MAY BANK HOLIDAY";if(m===5&&dt===getLastDay(y,5,1))return"SPRING BANK HOLIDAY";if(m===8&&dt===getLastDay(y,8,1))return"SUMMER BANK HOLIDAY"}if(mId==='TSE'){if(dt<=3&&m===1)return"NEW YEAR HOLIDAY";if(m===2&&dt===11)return"FOUNDATION DAY";if(m===2&&dt===23)return"EMPEROR'S BIRTHDAY";if(m===4&&dt===29)return"SHOWA DAY";if(m===5&&(dt>=3&&dt<=5))return"GOLDEN WEEK";if(m===7){const md3=getNthDay(y,7,1,3);if(dt===md3)return"MARINE DAY"};if(m===9){const md3=getNthDay(y,9,1,3);if(dt===md3)return"RESPECT FOR AGED DAY"};if(m===11&&dt===3)return"CULTURE DAY";if(m===11&&dt===23)return"LABOR THANKSGIVING DAY"}return null};
+const getTzInfo=(d,tz)=>{const utc=new Date(d.toLocaleString('en-US',{timeZone:'UTC'})),loc=new Date(d.toLocaleString('en-US',{timeZone:tz})),offMs=loc-utc,offH=Math.floor(offMs/3600000),offM=Math.abs(Math.floor((offMs%3600000)/60000)),offStr=`UTC${offH>=0?'+':''}${offH}${offM>0?':'+offM.toString().padStart(2,'0'):''}`;const jan=new Date(d.getFullYear(),0,1),jul=new Date(d.getFullYear(),6,1),isDST=new Date(jan.toLocaleString('en-US',{timeZone:tz})).getTimezoneOffset()!==new Date(jul.toLocaleString('en-US',{timeZone:tz})).getTimezoneOffset();let abbr='';if(tz==='Europe/London')abbr=offH===1?'BST':'GMT';else if(tz==='America/New_York')abbr=offH===-4?'EDT':'EST';else abbr='JST';return{abbr,offset:offStr,isDST}};
+const getSessionHrs=(tz,oh,om,ch,cm)=>{const n=new Date(),mktL=n.toLocaleString('en-US',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}),[mm,dd,yy]=mktL.split('/'),y=yy,mo=mm,d=dd;const getU=(h,mn)=>{const targetISO=`${y}-${mo}-${d}T${h.toString().padStart(2,'0')}:${mn.toString().padStart(2,'0')}:00`,guessUtc=new Date(targetISO+"Z"),mktCheck=new Date(guessUtc.toLocaleString('en-US',{timeZone:tz})),diff=mktCheck-new Date(targetISO),finalUtc=new Date(guessUtc.getTime()-diff);return finalUtc.getHours().toString().padStart(2,'0')+':'+finalUtc.getMinutes().toString().padStart(2,'0')};return`${getU(oh,om)} - ${getU(ch,cm)}`;};
+const getUsrTime=(mt,tz)=>{const ud=new Date(mt.getTime()),md=new Date(mt.toLocaleString("en-US",{timeZone:tz})),offH=Math.round((ud-md)/3600000),sign=offH>=0?'+':'',offStr=offH!==0?` (${sign}${offH}h)`:'';return`${ud.getHours().toString().padStart(2,'0')}:${ud.getMinutes().toString().padStart(2,'0')}${offStr}`};
+
+const update=()=>{const now=new Date(),cfgs=[{id:'LSE',tz:'Europe/London',openH:8,openM:0,closeH:16,closeM:30},{id:'NYSE',tz:'America/New_York',openH:9,openM:30,closeH:16,closeM:0},{id:'TSE',tz:'Asia/Tokyo',openH:9,openM:0,closeH:15,closeM:0}];cfgs.forEach(config=>{const mktStr=now.toLocaleString("en-US",{timeZone:config.tz}),mktDate=new Date(mktStr),h=mktDate.getHours(),min=mktDate.getMinutes(),sec=mktDate.getSeconds(),curD=h+min/60+sec/3600,oD=config.openH+config.openM/60,cD=config.closeH+config.closeM/60;const clk=document.getElementById(`${config.id}-clock`),ts=mktDate.toTimeString().split(' ')[0];const hDeg=(h%12+min/60)*30,mDeg=(min+sec/60)*6,sDeg=sec*6;const sHand=document.getElementById(`${config.id}-s`);if(sec===0)sHand.style.transition='none';else sHand.style.transition='transform .15s cubic-bezier(.4,2.3,.6,1)';clk.textContent=ts;document.getElementById(`${config.id}-h`).style.transform=`translateX(-50%) rotate(${hDeg}deg)`;document.getElementById(`${config.id}-m`).style.transform=`translateX(-50%) rotate(${mDeg}deg)`;sHand.style.transform=`translateX(-50%) rotate(${sDeg}deg)`;const tzi=getTzInfo(now,config.tz),db=document.getElementById(`${config.id}-dst`);db.textContent=`${tzi.abbr} (${tzi.offset})`;tzi.isDST?db.classList.add('dst-active'):db.classList.remove('dst-active');const holiday=isClosed(mktDate,config.id),isOpen=!holiday&&curD>=oD&&curD<cD,card=document.getElementById(`${config.id}-card`),stxt=document.getElementById(`${config.id}-status-text`);const sDur=cD-oD;let pPct=0;if(isOpen)pPct=((curD-oD)/sDur)*100;document.getElementById(`${config.id}-progress`).style.width=`${pPct}%`;let tgt=new Date(mktDate),lbl="Next opening",isWarn=false;const cdb=document.getElementById(`${config.id}-countdown-box`);cdb.classList.remove('warning');if(!isOpen){if(curD<oD&&!holiday){const minsUntil=(oD-curD)*60;if(minsUntil<=30){lbl="⚡ Opening soon";isWarn=true;cdb.classList.add('warning')}else{lbl="Opening in"}tgt.setHours(config.openH,config.openM,0,0)}else{lbl="Next opening";tgt.setHours(config.openH,config.openM,0,0);do{tgt.setDate(tgt.getDate()+1)}while(isClosed(tgt,config.id))}}else{const minsUntil=(cD-curD)*60;if(minsUntil<=30){lbl="⚠️ Closing soon";isWarn=true;cdb.classList.add('warning')}else{lbl="Closing in"}tgt.setHours(config.closeH,config.closeM,0,0)}card.className=`card ${isOpen?'is-open':'is-closed'} ${isWarn?'is-warning':''}`;stxt.textContent=holiday?`CLOSED (${holiday})`:(isOpen?"MARKET OPEN 📈":"MARKET CLOSED");const dMs=tgt-mktDate,cdH=Math.floor(dMs/3600000),cdM=Math.floor((dMs%3600000)/60000),cdS=Math.floor((dMs%60000)/1000);document.getElementById(`${config.id}-cd-label`).textContent=lbl;document.getElementById(`${config.id}-countdown`).textContent=`${cdH.toString().padStart(2,'0')}h ${cdM.toString().padStart(2,'0')}m ${cdS.toString().padStart(2,'0')}s`;document.getElementById(`${config.id}-user-time`).textContent=getUsrTime(now,config.tz);document.getElementById(`${config.id}-converted-session`).innerHTML=`Your session: <strong>${getSessionHrs(config.tz,config.openH,config.openM,config.closeH,config.closeM)}</strong>`})};
+const init=()=>{
+    document.querySelectorAll('.analog-watch').forEach(w=>{const d=w.querySelector('.dial');for(let i=0;i<12;i++){const m=document.createElement('div');m.className=`marker ${i%3===0?'m'+(i===0?12:i):''}`;m.style.transform=`rotate(${i*30}deg)`;d.appendChild(m);const n=document.createElement('div');n.className='dial-num';n.textContent=i===0?12:i;n.style.transform=`rotate(${i*30}deg) translateY(-48px) rotate(${-(i*30)}deg)`;d.appendChild(n)}});
+    if(tg){
+        tg.ready();
+        tg.expand();
+        tg.onEvent('themeChanged',syncTheme);
+        syncTheme();
+        tg.MainButton.text = "REFRESH DATA";
+        tg.MainButton.show();
+        tg.MainButton.onClick(() => {
+            update();
+            tg.HapticFeedback.notificationOccurred('success');
+        });
+    }
+    update();
+    setInterval(update,1000)
+};
+setTimeout(init,100);
+</script>
+</body>
+</html>
