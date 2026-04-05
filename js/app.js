@@ -494,8 +494,24 @@ function init() {
     if (tg) {
       tg.ready();
       tg.expand();
+      tg.enableClosingConfirmation();
       tg.onEvent('themeChanged', syncTheme);
       syncTheme();
+
+      // Back Button logic
+      const manualBack = document.getElementById('manual-back');
+      if (tg.BackButton && tg.platform !== 'unknown' && tg.platform !== 'tdesktop') {
+        // Native Telegram Back Button
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
+          triggerHaptic();
+          window.location.href = 'index.html';
+        });
+        if (manualBack) manualBack.style.display = 'none';
+      } else if (manualBack) {
+        // Fallback for non-Telegram environments
+        manualBack.style.display = 'flex';
+      }
 
       tg.MainButton.text = "REFRESH DATA";
       tg.MainButton.show();
