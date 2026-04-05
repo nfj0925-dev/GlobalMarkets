@@ -201,8 +201,8 @@ h1 span {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: clamp(15px, 3vw, 25px);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: clamp(10px, 2vw, 20px);
   width: 100%;
   max-width: 1400px;
   position: relative;
@@ -214,8 +214,8 @@ h1 span {
   background: var(--card);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-radius: 20px;
-  padding: clamp(20px, 5vw, 30px);
+  border-radius: 16px;
+  padding: clamp(12px, 4vw, 22px);
   border: 1px solid var(--card-border);
   position: relative;
   transition: all .3s cubic-bezier(.4, 0, .2, 1);
@@ -340,7 +340,7 @@ h1 span {
 
 h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   letter-spacing: -.5px;
   display: flex;
   align-items: center;
@@ -354,7 +354,7 @@ h2 {
 }
 
 .clock {
-  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-size: clamp(1.4rem, 6vw, 1.9rem);
   font-weight: 800;
   font-family: 'JetBrains Mono', monospace;
   margin: 0;
@@ -372,8 +372,8 @@ h2 {
 }
 
 .analog-watch {
-  width: 145px;
-  height: 145px;
+  width: 110px;
+  height: 110px;
   border-radius: 50%;
   position: relative;
   border: 3px solid rgba(255, 255, 255, 0.1);
@@ -424,7 +424,7 @@ h2 {
   background: rgba(255, 255, 255, 0.25);
   left: 50%;
   top: 6px;
-  transform-origin: 50% 66px;
+  transform-origin: 50% 49px;
   margin-left: -0.75px
 }
 
@@ -467,7 +467,7 @@ h2 {
 
 .hour-hand {
   width: 6px;
-  height: 40px;
+  height: 32px;
   background: linear-gradient(to right, #fff 50%, #e2e8f0 50%);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
   z-index: 2
@@ -475,7 +475,7 @@ h2 {
 
 .minute-hand {
   width: 4px;
-  height: 60px;
+  height: 46px;
   background: linear-gradient(to right, #cbd5e1 50%, #94a3b8 50%);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
   z-index: 3
@@ -483,7 +483,7 @@ h2 {
 
 .second-hand {
   width: 1.5px;
-  height: 68px;
+  height: 52px;
   background: var(--accent);
   z-index: 4;
   transition: transform .15s cubic-bezier(.4, 2.3, .6, 1)
@@ -575,7 +575,7 @@ h2 {
 }
 
 .countdown-timer {
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: bold;
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: -.5px
@@ -808,16 +808,16 @@ h2 {
 
 @media (max-width: 400px) {
   .analog-watch {
-    width: 130px;
-    height: 130px
+    width: 90px;
+    height: 90px
   }
 
   .dial-num {
-    font-size: 0.6rem
+    font-size: 0.55rem
   }
 
   .dial .marker {
-    transform-origin: 50% 59px
+    transform-origin: 50% 39px
   }
 }
 
@@ -830,4 +830,127 @@ h2 {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ==========================================
+   MENU HUB STYLES
+   ========================================== */
+.menu-page {
+    padding-top: clamp(40px, 10vh, 100px);
+}
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 900px;
+    z-index: 1;
+}
+
+.menu-card {
+    background: var(--card);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    padding: 30px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-card:not(.disabled):hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    background: rgba(96, 165, 250, 0.08);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 0 0 20px var(--accent-glow);
+}
+
+.menu-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
+.menu-icon {
+    width: 56px;
+    height: 56px;
+    background: var(--accent-glow);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.menu-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.menu-info h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.menu-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.menu-status {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: var(--open-glow);
+    color: var(--open);
+    letter-spacing: 0.5px;
+}
+
+.badge-soon {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--muted);
+}
+
+.back-link {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    transition: all 0.3s ease;
+    padding: 10px;
+}
+
+.back-link:hover {
+    color: var(--accent);
+    transform: translateY(-50%) translateX(-5px);
+}
+
+.back-link svg {
+    width: 24px;
+    height: 24px;
+}
+
+@media (max-width: 600px) {
+    .menu-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .menu-card {
+        padding: 20px;
+    }
 }
