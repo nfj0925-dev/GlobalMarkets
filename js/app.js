@@ -10,15 +10,9 @@ function triggerHaptic() {
 }
 
 function syncTheme() {
-  if (!tg) return;
-  const theme = tg.themeParams;
-  const r = document.documentElement.style;
-  if (theme.bg_color) r.setProperty('--bg', theme.bg_color);
-  if (theme.secondary_bg_color) r.setProperty('--card', theme.secondary_bg_color);
-  if (theme.text_color) r.setProperty('--text', theme.text_color);
-  if (theme.button_color) r.setProperty('--accent', theme.button_color);
-  if (theme.hint_color) r.setProperty('--muted', theme.hint_color);
+  // Theme syncing disabled to force dark mode
 }
+
 
 // ==========================================
 // HOLIDAY & DST CALCULATIONS
@@ -125,6 +119,22 @@ function isMarketClosed(date, marketId) {
     if (month === 10 && dayOfMonth >= 1 && dayOfMonth <= 7) return "NATIONAL DAY GOLDEN WEEK";
   }
 
+  if (marketId === 'HKEX') {
+    if (isGoodFriday) return "GOOD FRIDAY";
+    if (month === 12 && dayOfMonth === 26) return "BOXING DAY";
+  }
+
+  if (marketId === 'SGX') {
+    if (month === 5 && dayOfMonth === 1) return "LABOR DAY";
+    if (month === 8 && dayOfMonth === 9) return "NATIONAL DAY";
+  }
+
+  if (marketId === 'TSX') {
+    if (month === 2 && dayOfMonth === getNthDayOfYear(year, 2, 1, 3)) return "FAMILY DAY";
+    if (month === 5 && dayOfMonth === getNthDayOfYear(year, 5, 1, 3)) return "VICTORIA DAY";
+    if (month === 8 && dayOfMonth === getNthDayOfYear(year, 8, 1, 1)) return "CIVIC HOLIDAY";
+  }
+
   return null;
 }
 
@@ -133,26 +143,39 @@ function isMarketClosed(date, marketId) {
 // ==========================================
 function getTimezoneInfo(date, timezone) {
   try {
-    const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
-    const localDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
-    const offsetMs = localDate - utcDate;
-    const offsetHours = Math.floor(offsetMs / MS_PER_HOUR);
-    const offsetMinutes = Math.abs(Math.floor((offsetMs % MS_PER_HOUR) / MS_PER_MINUTE));
-    const offsetStr = `UTC${offsetHours >= 0 ? '+' : ''}${offsetHours}${offsetMinutes > 0 ? ':' + offsetMinutes.toString().padStart(2, '0') : ''}`;
+    const getOffset = (d) => {
+      const utcDate = new Date(d.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const localDate = new Date(d.toLocaleString('en-US', { timeZone: timezone }));
+      return localDate - utcDate;
+    };
+
+    const offsetMs = getOffset(date);
+    const isNegative = offsetMs < 0;
+    const absOffsetMs = Math.abs(offsetMs);
+    const offsetHours = Math.floor(absOffsetMs / MS_PER_HOUR);
+    const offsetMinutes = Math.floor((absOffsetMs % MS_PER_HOUR) / MS_PER_MINUTE);
+    
+    // Explicit format to prevent UTC-4:30 when it should be UTC-03:30
+    const sign = isNegative ? '-' : '+';
+    const offsetStr = `UTC${sign}${offsetHours}${offsetMinutes > 0 ? ':' + offsetMinutes.toString().padStart(2, '0') : ''}`;
 
     const jan = new Date(date.getFullYear(), 0, 1);
     const jul = new Date(date.getFullYear(), 6, 1);
-    const isDST = new Date(jan.toLocaleString('en-US', { timeZone: timezone })).getTimezoneOffset() !==
-      new Date(jul.toLocaleString('en-US', { timeZone: timezone })).getTimezoneOffset();
+    const stdOffsetMs = Math.min(getOffset(jan), getOffset(jul));
+    const isDST = offsetMs > stdOffsetMs;
 
     let abbr = '';
     switch (timezone) {
-      case 'Europe/London': abbr = offsetHours === 1 ? 'BST' : 'GMT'; break;
-      case 'America/New_York': abbr = offsetHours === -4 ? 'EDT' : 'EST'; break;
+      case 'Europe/London': abbr = isDST ? 'BST' : 'GMT'; break;
+      case 'America/New_York': abbr = isDST ? 'EDT' : 'EST'; break;
       case 'Asia/Tokyo': abbr = 'JST'; break;
       case 'Asia/Shanghai': abbr = 'CST'; break;
-      case 'Europe/Berlin': abbr = offsetHours === 2 ? 'CEST' : 'CET'; break;
-      case 'Australia/Sydney': abbr = offsetHours === 11 ? 'AEDT' : 'AEST'; break;
+      case 'Europe/Berlin': abbr = isDST ? 'CEST' : 'CET'; break;
+      case 'Australia/Sydney': abbr = isDST ? 'AEDT' : 'AEST'; break;
+      case 'Asia/Hong_Kong': abbr = 'HKT'; break;
+      case 'Asia/Singapore': abbr = 'SGT'; break;
+      case 'Asia/Dubai': abbr = 'GST'; break;
+      case 'America/Toronto': abbr = isDST ? 'EDT' : 'EST'; break;
       default: abbr = timezone.split('/').pop();
     }
 
@@ -206,6 +229,7 @@ function createMarketCard(market) {
   const card = document.createElement('article');
   card.id = `${market.id}-card`;
   card.className = 'card';
+  card.style.setProperty('--card-accent', market.accentColor);
   card.setAttribute('tabindex', '0');
   card.setAttribute('role', 'region');
   card.setAttribute('aria-label', `${market.name} market status`);
@@ -299,7 +323,6 @@ function updateMarketCard(market) {
     if (clockEl) {
       const timeString = marketDate.toTimeString().split(' ')[0];
       clockEl.textContent = timeString;
-      // Use real UTC time for the datetime attribute (ISO 8601 compliant)
       clockEl.setAttribute('datetime', now.toISOString());
     }
 
@@ -336,11 +359,13 @@ function updateMarketCard(market) {
     // Progress bar
     const sessionDuration = closeDecimal - openDecimal;
     let progressPct = 0;
-    if (isOpen) progressPct = ((currentDecimal - openDecimal) / sessionDuration) * 100;
+    if (isOpen && sessionDuration > 0) {
+      progressPct = ((currentDecimal - openDecimal) / sessionDuration) * 100;
+    }
 
     const progressEl = document.getElementById(`${market.id}-progress`);
     if (progressEl) {
-      progressEl.style.width = `${progressPct}%`;
+      progressEl.style.width = `${Math.max(0, Math.min(100, progressPct))}%`;
       const progressBar = progressEl.closest('[role="progressbar"]');
       if (progressBar) progressBar.setAttribute('aria-valuenow', Math.round(progressPct));
     }
@@ -359,41 +384,36 @@ function updateMarketCard(market) {
     const countdownBox = document.getElementById(`${market.id}-countdown-box`);
     if (countdownBox) countdownBox.classList.remove('warning');
 
-    // Hour offset between market-local and user-local frames
-    const hourOffset = marketDate.getHours() - now.getHours();
-
-    // Helper: display countdown on DOM
     function renderCountdown(label, diffMs) {
       const cdLabelEl = document.getElementById(`${market.id}-cd-label`);
       const cdTimerEl = document.getElementById(`${market.id}-countdown`);
       if (cdLabelEl) cdLabelEl.textContent = label;
       if (cdTimerEl) {
-        const h = Math.floor(diffMs / MS_PER_HOUR);
-        const m = Math.floor((diffMs % MS_PER_HOUR) / MS_PER_MINUTE);
-        const s = Math.floor((diffMs % MS_PER_MINUTE) / 1000);
+        // Prevent negative values just in case
+        const safeDiffMs = Math.max(0, diffMs);
+        const h = Math.floor(safeDiffMs / MS_PER_HOUR);
+        const m = Math.floor((safeDiffMs % MS_PER_HOUR) / MS_PER_MINUTE);
+        const s = Math.floor((safeDiffMs % MS_PER_MINUTE) / 1000);
         cdTimerEl.textContent = `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
       }
     }
 
     if (!isOpen) {
       if (currentDecimal < openDecimal && !holiday) {
-        // Market closed but will open TODAY (market-local time)
         const minsUntil = (openDecimal - currentDecimal) * 60;
         if (minsUntil <= WARNING_THRESHOLD_MINUTES) {
-          countdownLabel = "\u26a1 Opening soon";
+          countdownLabel = "⚡ Opening soon";
           isWarning = true;
           if (countdownBox) countdownBox.classList.add('warning');
         } else {
           countdownLabel = "Opening in";
         }
 
-        // Build target: today at open time (market-local)
         const targetDate = new Date(marketDate);
-        targetDate.setHours(market.openHour - hourOffset, market.openMinute, 0, 0);
-        const diffMs = targetDate - now;
+        targetDate.setHours(market.openHour, market.openMinute, 0, 0);
+        const diffMs = targetDate - marketDate;
         renderCountdown(countdownLabel, diffMs);
       } else {
-        // Market closed — find next opening day (iterate market-local dates)
         countdownLabel = "Next opening";
 
         let testDate = new Date(marketDate);
@@ -401,24 +421,22 @@ function updateMarketCard(market) {
           testDate.setDate(testDate.getDate() + 1);
         } while (isMarketClosed(testDate, market.id));
 
-        // Set to opening time, compensating for user/market TZ offset
-        testDate.setHours(market.openHour - hourOffset, market.openMinute, 0, 0);
-        const diffMs = testDate - now;
+        testDate.setHours(market.openHour, market.openMinute, 0, 0);
+        const diffMs = testDate - marketDate;
         renderCountdown(countdownLabel, diffMs);
       }
     } else {
-      // Market is open — countdown to close (today market-local)
       const minsUntilClose = (closeDecimal - currentDecimal) * 60;
       if (minsUntilClose <= WARNING_THRESHOLD_MINUTES) {
-        countdownLabel = "\u26a0\ufe0f Closing soon";
+        countdownLabel = "⚠️ Closing soon";
         isWarning = true;
         if (countdownBox) countdownBox.classList.add('warning');
       } else {
         countdownLabel = "Closing in";
       }
       const targetDate = new Date(marketDate);
-      targetDate.setHours(market.closeHour - hourOffset, market.closeMinute, 0, 0);
-      const diffMs = targetDate - now;
+      targetDate.setHours(market.closeHour, market.closeMinute, 0, 0);
+      const diffMs = targetDate - marketDate;
       renderCountdown(countdownLabel, diffMs);
     }
 
@@ -430,7 +448,7 @@ function updateMarketCard(market) {
     if (statusText) {
       statusText.textContent = holiday
         ? `CLOSED (${holiday})`
-        : (isOpen ? "MARKET OPEN \ud83d\udcc8" : "MARKET CLOSED");
+        : (isOpen ? "MARKET OPEN 📈" : "MARKET CLOSED");
     }
 
     // User local time
@@ -478,6 +496,8 @@ function updateOfflineBanner() {
 // ==========================================
 function init() {
   try {
+
+
     const grid = document.querySelector('.grid');
     if (!grid) {
       console.error('Grid element not found');
@@ -498,10 +518,8 @@ function init() {
       tg.onEvent('themeChanged', syncTheme);
       syncTheme();
 
-      // Back Button logic
       const manualBack = document.getElementById('manual-back');
       if (tg.BackButton && tg.platform !== 'unknown' && tg.platform !== 'tdesktop') {
-        // Native Telegram Back Button
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
           triggerHaptic();
@@ -509,7 +527,6 @@ function init() {
         });
         if (manualBack) manualBack.style.display = 'none';
       } else if (manualBack) {
-        // Fallback for non-Telegram environments
         manualBack.style.display = 'flex';
       }
 
@@ -540,7 +557,7 @@ function init() {
     console.error('Initialization error:', error);
     const loadingOverlay = document.getElementById('loading-overlay');
     if (loadingOverlay) {
-      loadingOverlay.innerHTML = '<div style="color: var(--closed); text-align: center; padding: 20px;"><h2>\u26a0\ufe0f Error</h2><p>Failed to initialize market tracker.</p><p style="font-size: 0.8rem; color: var(--muted);">' + error.message + '</p></div>';
+      loadingOverlay.innerHTML = '<div style="color: var(--closed); text-align: center; padding: 20px;"><h2>⚠️ Error</h2><p>Failed to initialize market tracker.</p><p style="font-size: 0.8rem; color: var(--muted);">' + error.message + '</p></div>';
     }
   }
 }
